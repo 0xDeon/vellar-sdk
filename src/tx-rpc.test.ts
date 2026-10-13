@@ -1,3 +1,4 @@
+import { Account, Keypair, Networks, Operation, TransactionBuilder } from "@stellar/stellar-sdk";
 import { describe, expect, it, vi } from "vitest";
 import {
   createRpcTxSubmitter,
@@ -35,11 +36,36 @@ describe("createRpcTxSubmitter", () => {
     const sendTransaction = vi.fn();
     const submitter = createRpcTxSubmitter({
       rpcUrl: "https://rpc.test",
+      networkPassphrase: Networks.TESTNET,
       rateLimit: { bucketSize: 0, refillRate: 0 },
       server: { sendTransaction } as never,
     });
 
     await expect(submitter.submitTransaction("AAAA")).rejects.toBeInstanceOf(RateLimitError);
     expect(sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("decodes the signed XDR and submits it", async () => {
+    const keypair = Keypair.random();
+    const tx = new TransactionBuilder(new Account(keypair.publicKey(), "1"), {
+      fee: "100",
+      networkPassphrase: Networks.TESTNET,
+    })
+      .addOperation(Operation.bumpSequence({ bumpTo: "2" }))
+      .setTimeout(30)
+      .build();
+    tx.sign(keypair);
+    const sendTransaction = vi.fn().mockResolvedValue({ status: "PENDING", hash: tx.hash().toString("hex") });
+    const submitter = createRpcTxSubmitter({
+      rpcUrl: "https://rpc.test",
+      networkPassphrase: Networks.TESTNET,
+      server: { sendTransaction } as never,
+    });
+
+    await expect(submitter.submitTransaction(tx.toXDR())).resolves.toEqual({
+      hash: tx.hash().toString("hex"),
+    });
+    expect(sendTransaction).toHaveBeenCalledTimes(1);
+    expect(sendTransaction.mock.calls[0]![0].toXDR()).toBe(tx.toXDR());
   });
 });
