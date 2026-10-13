@@ -100,7 +100,7 @@ describe("createBalanceService.getBalancesBatch", () => {
     };
     const service = createBalanceService(reader, []);
     await expect(
-      service.getBalancesBatch("CHOLDER", [{ contractId: "CXLM" }]),
+      service.getBalancesBatch("CHOLDER", [{ symbol: "XLM", contractId: "CXLM", decimals: 7 }]),
     ).resolves.toEqual([{ contractId: "CXLM", success: true, amount: 1n }]);
   });
 });
